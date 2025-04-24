@@ -11,6 +11,7 @@ DRYRUN=0
 UPDATE=0
 REQUIRED_RECOMMENDED_ALL=1
 SUDO=""
+AUTO_CONFIRM=""
 
 PKGS_UPDATE=""
 PKGS_REQUIRED=()
@@ -38,6 +39,10 @@ while (( "$#" )); do
       UPDATE=1
       shift
       ;;
+    -y|--yes)
+      AUTO_CONFIRM="-y" 
+      shift
+      ;;
     -m|--package-manager)
       if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
         MANAGER=($2)
@@ -54,6 +59,7 @@ while (( "$#" )); do
       echo "  -d, --dry-run:             print actions, but do not execute"
       echo "  -l, --list:                just list the packages to install"
       echo "  -u, --update-package-list: update package manager package list"
+      echo "  -y, --yes:                 auto-confirm installations"
       echo "  -h, --help:                this help message"
       echo " (required|recommended|all) the set of dependencies to select."
       exit 0
@@ -117,7 +123,7 @@ if ((VERBOSE > 0)); then echo "Using \"$MANAGER\" package manager (select anothe
 if [[ "$MANAGER" == "apt" ]]; then
     SUDO="sudo"
     PKGS_UPDATE="apt update"
-    PKGS_OPTIONS+=(install --no-install-suggests --no-install-recommends)
+    PKGS_OPTIONS+=(install --no-install-suggests --no-install-recommends $AUTO_CONFIRM)  # Add AUTO_CONFIRM here
     if ((DRYRUN > 0));  then PKGS_OPTIONS+=(--dry-run); SUDO=""; fi
     PKGS_REQUIRED+=(libgl1-mesa-dev libwayland-dev libxkbcommon-dev wayland-protocols libegl1-mesa-dev)
     PKGS_REQUIRED+=(libc++-dev libepoxy-dev libglew-dev libeigen3-dev cmake g++ ninja-build)
@@ -127,7 +133,7 @@ if [[ "$MANAGER" == "apt" ]]; then
 elif [[ "$MANAGER" == "dnf" ]]; then
     SUDO="sudo"
     PKGS_UPDATE="dnf check-update"
-    PKGS_OPTIONS+=(install)
+    PKGS_OPTIONS+=(install $AUTO_CONFIRM)
     PKGS_REQUIRED+=(wayland-devel libxkbcommon-devel g++ ninja-build)
     PKGS_REQUIRED+=(epoxy-devel eigen3 cmake)
     PKGS_RECOMMENDED+=(libjpeg-devel libpng-devel OpenEXR-devel catch2)
@@ -139,7 +145,7 @@ elif [[ "$MANAGER" == "dnf" ]]; then
 elif [[ "$MANAGER" == "pacman" ]]; then
     SUDO="sudo"
     PKGS_UPDATE=""  # databases and packages are updated in -Syu install options
-    PKGS_OPTIONS+=(-Syu --needed)
+    PKGS_OPTIONS+=(-Syu --needed $AUTO_CONFIRM)  
     PKGS_REQUIRED+=(mesa wayland libxkbcommon wayland-protocols libc++ glew eigen cmake gcc ninja)
     PKGS_RECOMMENDED+=(libjpeg-turbo libpng ffmpeg)
     PKGS_ALL+=(libdc1394 libraw1394 openni python3)
@@ -151,7 +157,7 @@ elif [[ "$MANAGER" == "port" ]]; then
     SUDO="sudo"
     PKGS_UPDATE="port sync -q"
     if ((DRYRUN > 0));  then PKGS_OPTIONS+=(-y); SUDO=""; fi
-    PKGS_OPTIONS+=(-N install -q)
+    PKGS_OPTIONS+=(-N install -q $AUTO_CONFIRM)
     PKGS_REQUIRED+=(glew eigen3-devel cmake +gui ninja)
     PKGS_RECOMMENDED+=(libjpeg-turbo libpng openexr tiff ffmpeg-devel lz4 zstd py37-pybind11 catch2)
     PKGS_ALL+=(libdc1394 openni)
@@ -165,10 +171,9 @@ elif [[ "$MANAGER" == "brew" ]]; then
         MANAGER="echo $MANAGER"
     fi
 elif [[ "$MANAGER" == "vcpkg" ]]; then
-    # TODO: this should be a config option somehow...
     PKGS_OPTIONS+=(install --triplet=x64-windows )
     if ((DRYRUN > 0));  then PKGS_OPTIONS+=(--dry-run); fi
-    PKGS_REQUIRED+=(glew eigen3 vcpkg-tool-ninja)
+    PKGS_REQUIRED+=(glew eigen vcpkg-tool-ninja)
     PKGS_RECOMMENDED+=(libjpeg-turbo libpng openexr tiff ffmpeg lz4 zstd python3 Catch2)
     PKGS_ALL+=(openni2 realsense2)
 else
